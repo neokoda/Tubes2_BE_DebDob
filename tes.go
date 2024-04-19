@@ -3,102 +3,107 @@ package main
 import (
 	"fmt"
 	"strings"
+
 	"github.com/gocolly/colly"
 )
 
 type URLQueue struct {
-	links []string;
-	visited []string;
-	currentLink string;
-	neighborLinks[] string;
+	linkQueue     []string
+	visited       []string
+	neighborLinks []string
 }
 
-func (q* URLQueue) Enqueue(link string) {
-	q.links = append(q.links, link);
+func (q *URLQueue) Enqueue(link string) {
+	q.linkQueue = append(q.linkQueue, link)
 }
 
-func (q* URLQueue) Dequeue() string {
-	if (len(q.links) != 0) {
-		link := q.links[0];
-		q.links = q.links[1:];
-		return link;
+func (q *URLQueue) Dequeue() string {
+	if len(q.linkQueue) != 0 {
+		link := q.linkQueue[0]
+		q.linkQueue = q.linkQueue[1:]
+		return link
 	}
-	return "";
+	return ""
 }
 
-func (q* URLQueue) HasVisited(link string) bool {
-    for _, visitedLink := range q.visited {
-        if visitedLink == link {
-            return true
-        }
-    }
-    return false
+func (q *URLQueue) HasVisited(link string) bool {
+	for _, visitedLink := range q.visited {
+		if visitedLink == link {
+			return true
+		}
+	}
+	return false
+}
+
+func (q *URLQueue) HasDequeued(link string) bool {
+	for _, queueLink := range q.linkQueue {
+		if queueLink == link {
+			return false
+		}
+	}
+	return true
 }
 
 func validLink(link string) bool {
-	invalidPrefixes := []string{"/wiki/Special:", "/wiki/Talk:", "/wiki/User:", "/wiki/Portal:", "/wiki/Wikipedia:", "/wiki/File:", "/wiki/Category:", "/wiki/Help:"};
+	invalidPrefixes := []string{"/wiki/Special:", "/wiki/Talk:", "/wiki/User:", "/wiki/Portal:", "/wiki/Wikipedia:", "/wiki/File:", "/wiki/Category:", "/wiki/Help:", "/wiki/Template:"}
 	for _, prefix := range invalidPrefixes {
-		if (strings.HasPrefix(link, prefix)) {
-			return false;
+		if strings.HasPrefix(link, prefix) {
+			return false
 		}
 	}
-	return strings.HasPrefix(link, "/wiki/");
+	return strings.HasPrefix(link, "/wiki/")
 }
 
-func BFS(link string) {
+func BFS(src string, dest string) {
 	urlQueue := URLQueue{}
 
 	c := colly.NewCollector(
 		colly.AllowedDomains("en.wikipedia.org"),
-	);
+		colly.AllowURLRevisit(),
+	)
 
 	c.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL.String());
-		urlQueue.visited = append(urlQueue.visited, r.URL.String());
-		urlQueue.Enqueue(r.URL.String());
-	})
-
-	c.OnHTML("div#mw-content-text " + "a[href]", func(e *colly.HTMLElement) {
-		neighborLink := e.Attr("href");
-		if (validLink(neighborLink)) {
-			urlQueue.neighborLinks = append(urlQueue.neighborLinks, e.Request.AbsoluteURL(neighborLink));
+		currentLink := r.URL.String()
+		if !urlQueue.HasVisited(currentLink) {
+			fmt.Println("Visiting", currentLink)
+			urlQueue.visited = append(urlQueue.visited, currentLink)
+			urlQueue.Enqueue(currentLink)
 		}
 	})
 
-	c.Visit(link);
+	c.OnHTML("table.infobox "+"a[href]", func(e *colly.HTMLElement) {
+		// c.OnHTML("div#mw-content-text " + "a[href]", func(e *colly.HTMLElement) {
+		// c.OnHTML("a[href]", func(e *colly.HTMLElement) {
+		if urlQueue.HasDequeued(e.Request.URL.String()) {
+			neighborLink := e.Attr("href")
+			if validLink(neighborLink) {
+				urlQueue.neighborLinks = append(urlQueue.neighborLinks, e.Request.AbsoluteURL(neighborLink))
+			}
+		}
+	})
 
-	for (len(urlQueue.links) != 0) {
-		urlQueue.Dequeue();
+	c.Visit(src)
 
-		for _, neighborLink := range urlQueue.neighborLinks {
-			if (!urlQueue.HasVisited(neighborLink)) {
-				c.Visit(neighborLink);
+	distance := 0
+	for len(urlQueue.linkQueue) != 0 {
+		distance++
+		currentLink := urlQueue.Dequeue()
+		c.Visit(currentLink)
+
+		currentNeighborLinks := urlQueue.neighborLinks
+		urlQueue.neighborLinks = nil
+
+		for _, neighborLink := range currentNeighborLinks {
+			if !urlQueue.HasVisited(neighborLink) {
+				c.Visit(neighborLink)
+				urlQueue.neighborLinks = nil
+			} else {
+				fmt.Println(neighborLink, "already visited")
 			}
 		}
 	}
 }
 
 func main() {
-	// c := colly.NewCollector(
-	// 	colly.AllowedDomains("en.wikipedia.org"),
-	// );
-
-	// c.OnHTML("div#mw-content-text " + "a[href]", func(e *colly.HTMLElement) {
-	// 	link := e.Attr("href");
-
-	// 	if (validLink(link)) {
-	// 		c.Visit(e.Request.AbsoluteURL(link));
-	// 	}
-	// })
-
-	// c.OnRequest(func(r *colly.Request) {
-	// 	fmt.Println("Visiting", r.URL.String());
-	// })
-
-	// c.Visit("https://en.wikipedia.org/wiki/Horse");
-
-	// while (something()) {
-	// 	somethingElse();
-	// }
-	BFS("https://en.wikipedia.org/wiki/Rawer_than_Raw");
+	BFS("https://en.wikipedia.org/wiki/Si_Ronda", "https://en.wikipedia.org/wiki/Jakarta")
 }
