@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gocolly/colly"
 )
 
 type URLQueue struct {
+	predecessors  map[string]string
 	linkQueue     []string
 	visited       []string
 	neighborLinks []string
@@ -54,8 +56,29 @@ func validLink(link string) bool {
 	return strings.HasPrefix(link, "/wiki/")
 }
 
-func BFS(src string, dest string) {
+func reverseSlice(slice []string) {
+	for i := 0; i < len(slice)/2; i++ {
+		j := len(slice) - i - 1
+		slice[i], slice[j] = slice[j], slice[i]
+	}
+}
+
+func getPath(predecessors map[string]string, dest string) []string {
+	path := make([]string, 0)
+	node := dest
+
+	for node != "" {
+		path = append(path, node)
+		node = predecessors[node]
+	}
+
+	reverseSlice(path)
+	return path
+}
+
+func BFS(src string, dest string) []string {
 	urlQueue := URLQueue{}
+	urlQueue.predecessors = make(map[string]string)
 
 	c := colly.NewCollector(
 		colly.AllowedDomains("en.wikipedia.org"),
@@ -65,14 +88,13 @@ func BFS(src string, dest string) {
 	c.OnRequest(func(r *colly.Request) {
 		currentLink := r.URL.String()
 		if !urlQueue.HasVisited(currentLink) {
-			fmt.Println("Visiting", currentLink)
 			urlQueue.visited = append(urlQueue.visited, currentLink)
 			urlQueue.Enqueue(currentLink)
 		}
 	})
 
-	c.OnHTML("table.infobox "+"a[href]", func(e *colly.HTMLElement) {
-		// c.OnHTML("div#mw-content-text " + "a[href]", func(e *colly.HTMLElement) {
+	// c.OnHTML("table.infobox "+"a[href]", func(e *colly.HTMLElement) {
+	c.OnHTML("div#mw-content-text "+"a[href]", func(e *colly.HTMLElement) {
 		// c.OnHTML("a[href]", func(e *colly.HTMLElement) {
 		if urlQueue.HasDequeued(e.Request.URL.String()) {
 			neighborLink := e.Attr("href")
@@ -82,12 +104,13 @@ func BFS(src string, dest string) {
 		}
 	})
 
+	urlQueue.predecessors[src] = ""
 	c.Visit(src)
 
-	distance := 0
+	found := false
 	for len(urlQueue.linkQueue) != 0 {
-		distance++
 		currentLink := urlQueue.Dequeue()
+
 		c.Visit(currentLink)
 
 		currentNeighborLinks := urlQueue.neighborLinks
@@ -95,15 +118,30 @@ func BFS(src string, dest string) {
 
 		for _, neighborLink := range currentNeighborLinks {
 			if !urlQueue.HasVisited(neighborLink) {
+				urlQueue.predecessors[neighborLink] = currentLink
+				if neighborLink == dest {
+					found = true
+					break
+				}
 				c.Visit(neighborLink)
 				urlQueue.neighborLinks = nil
-			} else {
-				fmt.Println(neighborLink, "already visited")
 			}
 		}
+
+		if found {
+			break
+		}
 	}
+
+	path := getPath(urlQueue.predecessors, dest)
+	return path
 }
 
 func main() {
-	BFS("https://en.wikipedia.org/wiki/Si_Ronda", "https://en.wikipedia.org/wiki/Jakarta")
+	start := time.Now()
+	result := BFS("https://en.wikipedia.org/wiki/ISBN", "https://en.wikipedia.org/wiki/Harry_Potter")
+	elapsed := time.Since(start)
+
+	fmt.Println("BFS result:", result)
+	fmt.Println("Time taken:", elapsed)
 }
