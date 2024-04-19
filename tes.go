@@ -11,8 +11,15 @@ import (
 type URLQueue struct {
 	predecessors  map[string]string
 	linkQueue     []string
-	visited       []string
+	visited       map[string]bool
 	neighborLinks []string
+}
+
+func NewURLQueue() *URLQueue {
+	return &URLQueue{
+		predecessors: make(map[string]string),
+		visited:      make(map[string]bool),
+	}
 }
 
 func (q *URLQueue) Enqueue(link string) {
@@ -29,12 +36,8 @@ func (q *URLQueue) Dequeue() string {
 }
 
 func (q *URLQueue) HasVisited(link string) bool {
-	for _, visitedLink := range q.visited {
-		if visitedLink == link {
-			return true
-		}
-	}
-	return false
+	return q.visited[link]
+
 }
 
 func (q *URLQueue) HasDequeued(link string) bool {
@@ -77,8 +80,7 @@ func getPath(predecessors map[string]string, dest string) []string {
 }
 
 func BFS(src string, dest string) []string {
-	urlQueue := URLQueue{}
-	urlQueue.predecessors = make(map[string]string)
+	urlQueue := NewURLQueue()
 
 	c := colly.NewCollector(
 		colly.AllowedDomains("en.wikipedia.org"),
@@ -88,7 +90,7 @@ func BFS(src string, dest string) []string {
 	c.OnRequest(func(r *colly.Request) {
 		currentLink := r.URL.String()
 		if !urlQueue.HasVisited(currentLink) {
-			urlQueue.visited = append(urlQueue.visited, currentLink)
+			urlQueue.visited[currentLink] = true
 			urlQueue.Enqueue(currentLink)
 		}
 	})
@@ -139,7 +141,7 @@ func BFS(src string, dest string) []string {
 
 func main() {
 	start := time.Now()
-	result := BFS("https://en.wikipedia.org/wiki/ISBN", "https://en.wikipedia.org/wiki/Harry_Potter")
+	result := BFS("https://en.wikipedia.org/wiki/Durian", "https://en.wikipedia.org/wiki/Fungicide")
 	elapsed := time.Since(start)
 
 	fmt.Println("BFS result:", result)
