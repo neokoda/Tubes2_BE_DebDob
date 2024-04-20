@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -14,14 +13,14 @@ func getWikiArticle(title string) string {
 	return article
 }
 
-func main() {
-	start := time.Now()
-	result := IDS("https://en.wikipedia.org/wiki/Nutshell", "https://en.wikipedia.org/wiki/Hamlet")
-	elapsed := time.Since(start)
+// func main() {
+// 	start := time.Now()
+// 	result := IDS("https://en.wikipedia.org/wiki/Nutshell", "https://en.wikipedia.org/wiki/Hamlet")
+// 	elapsed := time.Since(start)
 
-	fmt.Println("Search result:", result)
-	fmt.Println("Time taken:", elapsed)
-}
+// 	fmt.Println("Search result:", result)
+// 	fmt.Println("Time taken:", elapsed)
+// }
 
 func main() {
 	r := gin.Default()
