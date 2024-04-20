@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/gocolly/colly"
 )
 
@@ -79,7 +81,7 @@ func getPath(predecessors map[string]string, dest string) []string {
 	return path
 }
 
-func BFS(src string, dest string) []string {
+func BFS(src string, dest string) [][]string {
 	urlQueue := NewURLQueue()
 
 	c := colly.NewCollector(
@@ -90,6 +92,7 @@ func BFS(src string, dest string) []string {
 	c.OnRequest(func(r *colly.Request) {
 		currentLink := r.URL.String()
 		if !urlQueue.HasVisited(currentLink) {
+			fmt.Println("Visiting", currentLink)
 			urlQueue.visited[currentLink] = true
 			urlQueue.Enqueue(currentLink)
 		}
@@ -136,14 +139,48 @@ func BFS(src string, dest string) []string {
 	}
 
 	path := getPath(urlQueue.predecessors, dest)
-	return path
+
+	return [][]string{path}
 }
 
-func main() {
-	start := time.Now()
-	result := BFS("https://en.wikipedia.org/wiki/Durian", "https://en.wikipedia.org/wiki/Fungicide")
-	elapsed := time.Since(start)
+func getWikiArticle(title string) string {
+	article := "https://en.wikipedia.org/wiki/" + title
+	return article
+}
 
-	fmt.Println("BFS result:", result)
-	fmt.Println("Time taken:", elapsed)
+// func main() {
+// 	start := time.Now()
+// 	result := BFS("https://en.wikipedia.org/wiki/Nutshell", "https://en.wikipedia.org/wiki/Pecans")
+// 	elapsed := time.Since(start)
+
+// 	fmt.Println("BFS result:", result)
+// 	fmt.Println("Time taken:", elapsed)
+// }
+
+func main() {
+	r := gin.Default()
+
+	// Endpoint to handle GET requests with query parameters
+	r.GET("/api", func(c *gin.Context) {
+		// Retrieve query parameters
+		src := c.Query("src")
+		dest := c.Query("dest")
+
+		// Example of validation
+		if src == "" || dest == "" {
+			// Return a Bad Request response if name parameter is missing
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Source and destination is required"})
+			return
+		}
+
+		// You can then use the retrieved query parameters as needed
+		start := time.Now()
+		path := BFS(getWikiArticle(src), getWikiArticle(dest))
+		elapsed := time.Since(start).Milliseconds()
+
+		// Send a JSON response
+		c.JSON(http.StatusOK, gin.H{"path": path, "timeTaken (ms)": elapsed})
+	})
+
+	r.Run(":8080") // Listen and serve on 0.0.0.0:80802
 }

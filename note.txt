@@ -6,3 +6,9 @@ Wikipedia:
 File:       
 Category:
 Help:
+
+
+- gatau kenapa ada yg double visiting
+- make dequeued map
+- refactor
+- deploy
