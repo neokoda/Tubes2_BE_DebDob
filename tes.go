@@ -161,7 +161,7 @@ func main() {
 	r := gin.Default()
 
 	// Endpoint to handle GET requests with query parameters
-	r.GET("/api", func(c *gin.Context) {
+	r.GET("/", func(c *gin.Context) {
 		// Retrieve query parameters
 		src := c.Query("src")
 		dest := c.Query("dest")
@@ -182,5 +182,5 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"path": path, "timeTaken (ms)": elapsed})
 	})
 
-	r.Run(":8080") // Listen and serve on 0.0.0.0:80802
+	r.Run(":8080") // Listen and serve on 0.0.0.0:8080
 }
