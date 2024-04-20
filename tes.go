@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -182,5 +183,5 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"path": path, "timeTaken (ms)": elapsed})
 	})
 
-	r.Run(":8080") // Listen and serve on 0.0.0.0:8080
+	r.Run(":" + os.Getenv("PORT")) // Listen and serve on 0.0.0.0:8080
 }
