@@ -8,7 +8,9 @@ Category:
 Help:
 
 
-- gatau kenapa ada yg double visiting
+- multi solution
+- threading
+- double ended search
 - make dequeued map
-- refactor
-- deploy
+- cors
+- > 10 detik eror

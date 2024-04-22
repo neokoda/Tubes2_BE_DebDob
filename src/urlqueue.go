@@ -1,10 +1,12 @@
 package main
 
+import "sync"
+
 type URLStore struct {
 	predecessors  map[string]string
 	linkQueue     []string
 	linkStack     []string
-	visited       map[string]bool
+	visited       sync.Map
 	neighborLinks []string
 	resultPath    []string
 }
@@ -12,7 +14,6 @@ type URLStore struct {
 func NewURLStore() *URLStore {
 	return &URLStore{
 		predecessors: make(map[string]string),
-		visited:      make(map[string]bool),
 	}
 }
 
@@ -44,8 +45,9 @@ func (q *URLStore) Pop() string {
 }
 
 func (q *URLStore) HasVisited(link string) bool {
-	return q.visited[link]
-
+	// return q.visited[link]
+	_, ok := q.visited.Load(link)
+	return ok
 }
 
 func (q *URLStore) HasDequeued(link string) bool {
