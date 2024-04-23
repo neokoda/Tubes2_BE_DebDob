@@ -1,15 +1,17 @@
 package main
 
 import (
-	"fmt"
+	"context"
+	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gocolly/colly"
 )
 
 func validLink(link string) bool {
-	invalidPrefixes := []string{"/wiki/Special:", "/wiki/Talk:", "/wiki/User:", "/wiki/Portal:", "/wiki/Wikipedia:", "/wiki/File:", "/wiki/Category:", "/wiki/Help:", "/wiki/Template:"}
+	invalidPrefixes := []string{"/wiki/Special:", "/wiki/Talk:", "/wiki/User:", "/wiki/Portal:", "/wiki/Wikipedia:", "/wiki/File:", "/wiki/Category:", "/wiki/Help:", "/wiki/Template:", "/wiki/Template_talk:"}
 	for _, prefix := range invalidPrefixes {
 		if strings.HasPrefix(link, prefix) {
 			return false
@@ -38,90 +40,27 @@ func getPath(predecessors map[string]string, dest string) []string {
 	return path
 }
 
-func BFS(src string, dest string) [][]string {
-	urlQueue := NewURLStore()
-
-	c := colly.NewCollector(
-		colly.AllowedDomains("en.wikipedia.org"),
-		colly.AllowURLRevisit(),
-	)
-
-	c.OnRequest(func(r *colly.Request) {
-		currentLink := r.URL.String()
-		if !urlQueue.HasVisited(currentLink) {
-			fmt.Println("Visiting", currentLink)
-			// urlQueue.visited[currentLink] = true
-			urlQueue.Enqueue(currentLink)
-		}
-	})
-
-	c.OnHTML("table.infobox "+"a[href]", func(e *colly.HTMLElement) {
-		// c.OnHTML("a[href]", func(e *colly.HTMLElement) {
-		// c.OnHTML("div#mw-content-text "+"a[href]", func(e *colly.HTMLElement) {
-		if urlQueue.HasDequeued(e.Request.URL.String()) {
-			neighborLink := e.Attr("href")
-			if validLink(neighborLink) {
-				urlQueue.neighborLinks = append(urlQueue.neighborLinks, e.Request.AbsoluteURL(neighborLink))
-			}
-		}
-	})
-
-	urlQueue.predecessors[src] = ""
-	c.Visit(src)
-
-	found := false
-	for len(urlQueue.linkQueue) != 0 {
-		currentLink := urlQueue.Dequeue()
-
-		c.Visit(currentLink)
-
-		currentNeighborLinks := urlQueue.neighborLinks
-		urlQueue.neighborLinks = nil
-
-		for _, neighborLink := range currentNeighborLinks {
-			if !urlQueue.HasVisited(neighborLink) {
-				urlQueue.predecessors[neighborLink] = currentLink
-				if neighborLink == dest {
-					found = true
-					break
-				}
-				c.Visit(neighborLink)
-				urlQueue.neighborLinks = nil
-			}
-		}
-
-		if found {
-			break
-		}
-	}
-
-	urlQueue.resultPath = getPath(urlQueue.predecessors, dest)
-
-	return [][]string{urlQueue.resultPath}
-}
-
-func BFS2(src string, dest string) [][]string {
+func BFS(src string, dest string) *URLStore {
 	urlQueue := NewURLStore()
 
 	var mutex sync.Mutex
-	var wg sync.WaitGroup
 
 	c := colly.NewCollector(
 		colly.AllowedDomains("en.wikipedia.org"),
-		// colly.AllowedDomains("informatika.stei.itb.ac.id"),
+		colly.Async(true),
 	)
+
+	c.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 10})
 
 	c.OnRequest(func(r *colly.Request) {
 		currentLink := r.URL.String()
-		fmt.Println("Visiting", currentLink)
 		urlQueue.visited.Store(currentLink, true)
+		urlQueue.numVisited++
 	})
 
-	// c.OnHTML("table.infobox "+"a[href]", func(e *colly.HTMLElement) {
-	// c.OnHTML("a[href]", func(e *colly.HTMLElement) {
 	c.OnHTML("div#mw-content-text "+"a[href]", func(e *colly.HTMLElement) {
 		currentLink := e.Request.URL.String()
-		neighborLink := e.Attr("href")
+		neighborLink, _ := url.QueryUnescape(e.Attr("href"))
 		if validLink(neighborLink) {
 			mutex.Lock()
 			if urlQueue.predecessors[e.Request.AbsoluteURL(neighborLink)] == "" && e.Request.AbsoluteURL(neighborLink) != src {
@@ -135,103 +74,104 @@ func BFS2(src string, dest string) [][]string {
 	urlQueue.predecessors[src] = ""
 	c.Visit(src)
 
-	maxConcurrency := 200
-	semaphore := make(chan struct{}, maxConcurrency)
-
 	found := false
 	for !found {
 		currentNeighborLinks := urlQueue.neighborLinks
 		urlQueue.neighborLinks = nil
 
 		for _, neighborLink := range currentNeighborLinks {
-			semaphore <- struct{}{}
-			wg.Add(1)
-			go func(link string) {
-				defer wg.Done()
-				defer func() { <-semaphore }()
-
-				if !urlQueue.HasVisited(link) {
-					c.Visit(link)
-				}
-			}(neighborLink)
-
+			if !urlQueue.HasVisited(neighborLink) {
+				c.Visit(neighborLink)
+			}
 			if neighborLink == dest {
 				found = true
 				break
 			}
 		}
 
-		wg.Wait()
+		if !found {
+			c.Wait()
+		}
 	}
 
 	urlQueue.resultPath = getPath(urlQueue.predecessors, dest)
 
-	return [][]string{urlQueue.resultPath}
+	return urlQueue
 }
 
-func DLS(src string, dest string, maxDepth int) [][]string {
+func DLS(src string, dest string, maxDepth int) *URLStore {
 	urlStore := NewURLStore()
 
 	var mutex sync.Mutex
-	var wg sync.WaitGroup
+	timer := time.NewTimer(3 * time.Second)
+	noVisits := make(chan struct{})
 
-	maxConcurrency := 200
-	semaphore := make(chan struct{}, maxConcurrency)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	c := colly.NewCollector(
 		colly.AllowedDomains("en.wikipedia.org"),
-		// colly.AllowedDomains("informatika.stei.itb.ac.id"),
 		colly.MaxDepth(maxDepth),
+		colly.Async(true),
 	)
 
-	c.OnRequest(func(r *colly.Request) {
-		currentLink := r.URL.String()
-		fmt.Println("Visiting", currentLink)
-		urlStore.visited.Store(currentLink, true)
-		if currentLink == dest {
-			urlStore.resultPath = getPath(urlStore.predecessors, dest)
-		}
-	})
+	c.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 10})
 
-	// c.OnHTML("table.infobox "+"a[href]", func(e *colly.HTMLElement) {
-	// c.OnHTML("a[href]", func(e *colly.HTMLElement) {
-	c.OnHTML("div#mw-content-text "+"a[href]", func(e *colly.HTMLElement) {
-		currentLink := e.Request.URL.String()
-		neighborLink := e.Attr("href")
-		if validLink(neighborLink) {
-			mutex.Lock()
-			if urlStore.predecessors[e.Request.AbsoluteURL(neighborLink)] == "" && e.Request.AbsoluteURL(neighborLink) != src {
-				urlStore.predecessors[e.Request.AbsoluteURL(neighborLink)] = currentLink
+	scraper := func() {
+		defer c.Wait()
+
+		c.OnRequest(func(r *colly.Request) {
+			timer.Reset(3 * time.Second)
+			currentLink := r.URL.String()
+			urlStore.visited.Store(currentLink, true)
+			urlStore.numVisited++
+			if currentLink == dest {
+				urlStore.resultPath = getPath(urlStore.predecessors, dest)
+				cancel()
 			}
-			mutex.Unlock()
+		})
 
-			semaphore <- struct{}{}
-			wg.Add(1)
-			go func(link string) {
-				defer wg.Done()
-				defer func() { <-semaphore }()
+		c.OnHTML("div#mw-content-text "+"a[href]", func(e *colly.HTMLElement) {
+			currentLink := e.Request.URL.String()
+			neighborLink := e.Attr("href")
+			if validLink(neighborLink) {
+				mutex.Lock()
+				if urlStore.predecessors[e.Request.AbsoluteURL(neighborLink)] == "" && e.Request.AbsoluteURL(neighborLink) != src {
+					urlStore.predecessors[e.Request.AbsoluteURL(neighborLink)] = currentLink
+				}
+				mutex.Unlock()
 
-				e.Request.Visit(link)
-			}(e.Request.AbsoluteURL(neighborLink))
-		}
-	})
+				e.Request.Visit(e.Request.AbsoluteURL(neighborLink))
+			}
+		})
 
-	c.Visit(src)
+		c.Visit(src)
+	}
 
-	wg.Wait()
+	go scraper()
 
-	return [][]string{urlStore.resultPath}
+	go func() {
+		<-timer.C
+		noVisits <- struct{}{}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return urlStore
+	case <-noVisits:
+		return urlStore
+	}
 }
 
-func IDS(src string, dest string) [][]string {
+func IDS(src string, dest string) *URLStore {
 	depth := 1
-	paths := [][]string{}
+	urlStore := NewURLStore()
 	for {
-		paths = DLS(src, dest, depth)
-		if len(paths[0]) > 0 {
+		urlStore = DLS(src, dest, depth)
+		if len(urlStore.resultPath) > 0 {
 			break
 		}
 		depth++
 	}
-	return paths
+	return urlStore
 }

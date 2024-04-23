@@ -16,10 +16,11 @@ func getWikiArticle(title string) string {
 
 // func main() {
 // 	start := time.Now()
-// 	result := IDS("https://en.wikipedia.org/wiki/Bandung_Institute_of_Technology", "https://en.wikipedia.org/wiki/China")
+// 	urlStore := IDS("https://en.wikipedia.org/wiki/Rawer_than_Raw", "https://en.wikipedia.org/wiki/Porcupine_Meat")
 // 	elapsed := time.Since(start)
 
-// 	fmt.Println("Search result:", result)
+// 	fmt.Println("Search result:", urlStore.resultPath)
+// 	fmt.Println("Articles visited:", urlStore.numVisited)
 // 	fmt.Println("Time taken:", elapsed)
 // }
 
@@ -35,18 +36,21 @@ func main() {
 		if src == "" || dest == "" || search == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Source, destination, search is required"})
 			return
+		} else if search != "BFS" && search != "IDS" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid search algorithmn"})
+			return
 		}
 
 		start := time.Now()
-		paths := [][]string{}
+		urlStore := NewURLStore()
 		if search == "BFS" {
-			paths = BFS2(getWikiArticle(src), getWikiArticle(dest))
+			urlStore = BFS(getWikiArticle(src), getWikiArticle(dest))
 		} else if search == "IDS" {
-			paths = IDS(getWikiArticle(src), getWikiArticle(dest))
+			urlStore = IDS(getWikiArticle(src), getWikiArticle(dest))
 		}
 		elapsed := time.Since(start).Milliseconds()
 
-		c.JSON(http.StatusOK, gin.H{"paths": paths, "timeTaken (ms)": elapsed})
+		c.JSON(http.StatusOK, gin.H{"paths": urlStore.resultPath, "visited": urlStore.numVisited, "timeTaken (ms)": elapsed})
 	})
 
 	r.Run(":" + os.Getenv("PORT"))

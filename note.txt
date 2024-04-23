@@ -9,8 +9,9 @@ Help:
 
 
 - multi solution
-- threading
 - double ended search
 - make dequeued map
-- cors
-- > 10 detik eror
+- redirect
+- empty
+- all attributes
+- idsnya masih gabisa multithreading soalnya bakal ngeblock wikipedia

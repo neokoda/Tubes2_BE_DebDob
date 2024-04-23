@@ -7,6 +7,7 @@ type URLStore struct {
 	linkQueue     []string
 	linkStack     []string
 	visited       sync.Map
+	numVisited    int
 	neighborLinks []string
 	resultPath    []string
 }
