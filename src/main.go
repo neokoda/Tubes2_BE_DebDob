@@ -49,9 +49,8 @@ func main() {
 			urlStore = IDS(getWikiArticle(src), getWikiArticle(dest))
 		}
 		elapsed := time.Since(start).Milliseconds()
-		paths := [][]string{urlStore.resultPath}
-
-		c.JSON(http.StatusOK, gin.H{"paths": paths, "visited": urlStore.numVisited, "timeTaken": elapsed})
+		
+		c.JSON(http.StatusOK, gin.H{"paths": [][]string{urlStore.resultPath}, "visited": urlStore.numVisited, "timeTaken": elapsed})
 	})
 
 	port := os.Getenv("PORT")
