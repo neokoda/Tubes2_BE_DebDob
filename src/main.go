@@ -50,7 +50,7 @@ func main() {
 		}
 		elapsed := time.Since(start).Milliseconds()
 
-		c.JSON(http.StatusOK, gin.H{"paths": urlStore.resultPath, "visited": urlStore.numVisited, "timeTaken (ms)": elapsed})
+		c.JSON(http.StatusOK, gin.H{"paths": [][]string{urlStore.resultPath}, "visited": urlStore.numVisited, "timeTaken": elapsed})
 	})
 
 	r.Run(":" + os.Getenv("PORT"))

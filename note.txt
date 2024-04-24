@@ -1,17 +1,5 @@
-Special:
-Talk:
-User:
-Portal:
-Wikipedia:
-File:       
-Category:
-Help:
-
-
+- cepetin 22nya
 - multi solution
-- double ended search
-- make dequeued map
 - redirect
 - empty
 - all attributes
-- idsnya masih gabisa multithreading soalnya bakal ngeblock wikipedia
