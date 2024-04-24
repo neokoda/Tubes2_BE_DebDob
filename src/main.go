@@ -49,9 +49,15 @@ func main() {
 			urlStore = IDS(getWikiArticle(src), getWikiArticle(dest))
 		}
 		elapsed := time.Since(start).Milliseconds()
+		paths := [][]string{urlStore.resultPath}
 
-		c.JSON(http.StatusOK, gin.H{"paths": urlStore.resultPath, "visited": urlStore.numVisited, "timeTaken (ms)": elapsed})
+		c.JSON(http.StatusOK, gin.H{"paths": paths, "visited": urlStore.numVisited, "timeTaken": elapsed})
 	})
 
-	r.Run(":" + os.Getenv("PORT"))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8000" // Default to port 8000 if PORT is not set
+	}
+
+	r.Run(":" + port)
 }
