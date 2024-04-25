@@ -16,10 +16,10 @@ func getWikiArticle(title string) string {
 
 // func main() {
 // 	start := time.Now()
-// 	urlStore := BFSMulti("https://en.wikipedia.org/wiki/Bandung_Institute_of_Technology", "https://en.wikipedia.org/wiki/Joko_Widodo")
+// 	urlStore := IDSMulti("https://en.wikipedia.org/wiki/Bobby_Rush_(musician)", "https://en.wikipedia.org/wiki/Gospel_music")
 // 	elapsed := time.Since(start)
 
-// 	fmt.Println("Search result:", urlStore.resultPaths, len(urlStore.resultPaths))
+// 	fmt.Println("Search result:", urlStore.resultPath, len(urlStore.resultPath))
 // 	fmt.Println("Articles visited:", urlStore.numVisited)
 // 	fmt.Println("Time taken:", elapsed)
 // }

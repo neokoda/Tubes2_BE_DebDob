@@ -10,8 +10,6 @@ import (
 	"github.com/gocolly/colly"
 )
 
-
-
 func validLink(link string) bool {
 	invalidPrefixes := []string{"/wiki/Special:", "/wiki/Talk:", "/wiki/User:", "/wiki/Portal:", "/wiki/Wikipedia:", "/wiki/File:", "/wiki/Category:", "/wiki/Help:", "/wiki/Template:", "/wiki/Template_talk:"}
 	for _, prefix := range invalidPrefixes {
@@ -237,7 +235,7 @@ func DLS(src string, dest string, maxDepth int) *URLStore {
 
 		c.OnHTML("div#mw-content-text "+"a[href]", func(e *colly.HTMLElement) {
 			currentLink := e.Request.URL.String()
-			neighborLink := e.Attr("href")
+			neighborLink, _ := url.QueryUnescape(e.Attr("href"))
 			if validLink(neighborLink) {
 				mutex.Lock()
 				if urlStore.predecessors[e.Request.AbsoluteURL(neighborLink)] == "" && e.Request.AbsoluteURL(neighborLink) != src {
@@ -271,12 +269,78 @@ func DLS(src string, dest string, maxDepth int) *URLStore {
 	}
 }
 
+func DLSMulti(src string, dest string, maxDepth int) *URLStore {
+	urlStore := NewURLStore()
+	found := false
+
+	var mutex sync.Mutex
+
+	c := colly.NewCollector(
+		colly.AllowedDomains("en.wikipedia.org"),
+		colly.MaxDepth(maxDepth),
+		colly.Async(true),
+	)
+
+	c.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 10})
+
+	c.OnRequest(func(r *colly.Request) {
+		currentLink := r.URL.String()
+		urlStore.visited.Store(currentLink, true)
+		if currentLink == dest {
+			found = true
+		}
+	})
+
+	c.OnHTML("table.infobox "+"a[href]", func(e *colly.HTMLElement) {
+		currentLink := e.Request.URL.String()
+		neighborLink, _ := url.QueryUnescape(e.Attr("href"))
+		if validLink(neighborLink) {
+			mutex.Lock()
+			if _, ok := urlStore.predecessorsMulti[e.Request.AbsoluteURL(neighborLink)]; ok && !stringInSlice(currentLink, urlStore.predecessorsMulti[e.Request.AbsoluteURL(neighborLink)]) {
+				urlStore.predecessorsMulti[e.Request.AbsoluteURL(neighborLink)] = append(urlStore.predecessorsMulti[e.Request.AbsoluteURL(neighborLink)], currentLink)
+			} else if !ok {
+				urlStore.predecessorsMulti[e.Request.AbsoluteURL(neighborLink)] = []string{currentLink}
+			}
+			mutex.Unlock()
+
+			e.Request.Visit(e.Request.AbsoluteURL(neighborLink))
+		}
+	})
+
+	c.OnScraped(func(r *colly.Response) {
+		urlStore.numVisited++
+	})
+
+	c.Visit(src)
+
+	c.Wait()
+
+	if found {
+		urlStore.resultPaths = getPaths(urlStore.predecessorsMulti, src, dest)
+	}
+
+	return urlStore
+}
+
 func IDS(src string, dest string) *URLStore {
 	depth := 1
 	urlStore := NewURLStore()
 	for {
 		urlStore = DLS(src, dest, depth)
 		if len(urlStore.resultPath) > 0 {
+			break
+		}
+		depth++
+	}
+	return urlStore
+}
+
+func IDSMulti(src string, dest string) *URLStore {
+	depth := 1
+	urlStore := NewURLStore()
+	for {
+		urlStore = DLSMulti(src, dest, depth)
+		if len(urlStore.resultPaths) > 0 {
 			break
 		}
 		depth++
