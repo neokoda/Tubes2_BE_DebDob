@@ -3,18 +3,21 @@ package main
 import "sync"
 
 type URLStore struct {
-	predecessors  map[string]string
-	linkQueue     []string
-	linkStack     []string
-	visited       sync.Map
-	numVisited    int
-	neighborLinks []string
-	resultPath    []string
+	predecessors      map[string]string
+	predecessorsMulti map[string][]string
+	linkQueue         []string
+	linkStack         []string
+	visited           sync.Map
+	numVisited        int
+	neighborLinks     []string
+	resultPath        []string
+	resultPaths       [][]string
 }
 
 func NewURLStore() *URLStore {
 	return &URLStore{
-		predecessors: make(map[string]string),
+		predecessors:      make(map[string]string),
+		predecessorsMulti: make(map[string][]string),
 	}
 }
 
@@ -46,7 +49,6 @@ func (q *URLStore) Pop() string {
 }
 
 func (q *URLStore) HasVisited(link string) bool {
-	// return q.visited[link]
 	_, ok := q.visited.Load(link)
 	return ok
 }

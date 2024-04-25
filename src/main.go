@@ -16,10 +16,10 @@ func getWikiArticle(title string) string {
 
 // func main() {
 // 	start := time.Now()
-// 	urlStore := IDS("https://en.wikipedia.org/wiki/Rawer_than_Raw", "https://en.wikipedia.org/wiki/Porcupine_Meat")
+// 	urlStore := BFSMulti("https://en.wikipedia.org/wiki/Bandung_Institute_of_Technology", "https://en.wikipedia.org/wiki/Joko_Widodo")
 // 	elapsed := time.Since(start)
 
-// 	fmt.Println("Search result:", urlStore.resultPath)
+// 	fmt.Println("Search result:", urlStore.resultPaths, len(urlStore.resultPaths))
 // 	fmt.Println("Articles visited:", urlStore.numVisited)
 // 	fmt.Println("Time taken:", elapsed)
 // }
@@ -32,25 +32,40 @@ func main() {
 		src := c.Query("src")
 		dest := c.Query("dest")
 		search := c.Query("search")
+		resultAmount := c.Query("resultAmount")
 
-		if src == "" || dest == "" || search == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Source, destination, search is required"})
+		if src == "" || dest == "" || search == "" || resultAmount == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Source, destination, search, resultAmount is required"})
 			return
 		} else if search != "BFS" && search != "IDS" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid search algorithmn"})
 			return
+		} else if resultAmount != "Single" && resultAmount != "Multi" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid resultAmount value"})
 		}
 
 		start := time.Now()
 		urlStore := NewURLStore()
 		if search == "BFS" {
-			urlStore = BFS(getWikiArticle(src), getWikiArticle(dest))
-		} else if search == "IDS" {
-			urlStore = IDS(getWikiArticle(src), getWikiArticle(dest))
+			if resultAmount == "Single" {
+				urlStore = BFS(getWikiArticle(src), getWikiArticle(dest))
+			} else {
+				urlStore = BFSMulti(getWikiArticle(src), getWikiArticle(dest))
+			}
+		} else {
+			if resultAmount == "Single" {
+				urlStore = IDS(getWikiArticle(src), getWikiArticle(dest))
+			} else {
+				urlStore = IDS(getWikiArticle(src), getWikiArticle(dest))
+			}
 		}
 		elapsed := time.Since(start).Milliseconds()
 
-		c.JSON(http.StatusOK, gin.H{"paths": [][]string{urlStore.resultPath}, "visited": urlStore.numVisited, "timeTaken": elapsed})
+		if resultAmount == "Single" {
+			c.JSON(http.StatusOK, gin.H{"paths": [][]string{urlStore.resultPath}, "visited": urlStore.numVisited, "timeTaken": elapsed})
+		} else {
+			c.JSON(http.StatusOK, gin.H{"paths": urlStore.resultPaths, "visited": urlStore.numVisited, "timeTaken": elapsed})
+		}
 	})
 
 	r.Run(":" + os.Getenv("PORT"))

@@ -27,6 +27,15 @@ func reverseSlice(slice []string) {
 	}
 }
 
+func stringInSlice(str string, list []string) bool {
+	for _, item := range list {
+		if item == str {
+			return true
+		}
+	}
+	return false
+}
+
 func getPath(predecessors map[string]string, dest string) []string {
 	path := make([]string, 0)
 	node := dest
@@ -38,6 +47,97 @@ func getPath(predecessors map[string]string, dest string) []string {
 
 	reverseSlice(path)
 	return path
+}
+
+func getPaths(predecessors map[string][]string, src string, dest string) [][]string {
+	var paths [][]string
+	var resultPaths [][]string
+
+	found := false
+	paths = append(paths, []string{dest})
+	for !found {
+		currentPaths := paths
+		paths = nil
+		for _, path := range currentPaths {
+			for _, pred := range predecessors[path[len(path)-1]] {
+				if pred == src {
+					found = true
+				}
+				newPath := append(path, pred)
+				paths = append(paths, newPath)
+			}
+		}
+	}
+
+	for _, path := range paths {
+		if path[len(path)-1] == src {
+			reverseSlice(path)
+			resultPaths = append(resultPaths, path)
+		}
+	}
+
+	return resultPaths
+}
+
+func BFSMulti(src string, dest string) *URLStore {
+	urlQueue := NewURLStore()
+
+	var mutex sync.Mutex
+
+	c := colly.NewCollector(
+		colly.AllowedDomains("en.wikipedia.org"),
+		colly.Async(true),
+	)
+
+	c.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 10})
+
+	c.OnRequest(func(r *colly.Request) {
+		currentLink := r.URL.String()
+		urlQueue.visited.Store(currentLink, true)
+	})
+
+	c.OnHTML("div#mw-content-text "+"a[href]", func(e *colly.HTMLElement) {
+		currentLink := e.Request.URL.String()
+		neighborLink, _ := url.QueryUnescape(e.Attr("href"))
+		if validLink(neighborLink) && !urlQueue.HasVisited(neighborLink) {
+			mutex.Lock()
+			if _, ok := urlQueue.predecessorsMulti[e.Request.AbsoluteURL(neighborLink)]; ok && !stringInSlice(currentLink, urlQueue.predecessorsMulti[e.Request.AbsoluteURL(neighborLink)]) {
+				urlQueue.predecessorsMulti[e.Request.AbsoluteURL(neighborLink)] = append(urlQueue.predecessorsMulti[e.Request.AbsoluteURL(neighborLink)], currentLink)
+			} else if !ok {
+				urlQueue.predecessorsMulti[e.Request.AbsoluteURL(neighborLink)] = []string{currentLink}
+			}
+			urlQueue.neighborLinks = append(urlQueue.neighborLinks, e.Request.AbsoluteURL(neighborLink))
+			mutex.Unlock()
+		}
+	})
+
+	c.OnScraped(func(r *colly.Response) {
+		urlQueue.numVisited++
+	})
+
+	c.Visit(src)
+
+	found := false
+	for !found {
+		currentNeighborLinks := urlQueue.neighborLinks
+		urlQueue.neighborLinks = nil
+
+		for _, neighborLink := range currentNeighborLinks {
+			if !urlQueue.HasVisited(neighborLink) {
+				c.Visit(neighborLink)
+			}
+			if neighborLink == dest {
+				found = true
+				break
+			}
+		}
+
+		c.Wait()
+	}
+
+	urlQueue.resultPaths = getPaths(urlQueue.predecessorsMulti, src, dest)
+
+	return urlQueue
 }
 
 func BFS(src string, dest string) *URLStore {
@@ -55,7 +155,6 @@ func BFS(src string, dest string) *URLStore {
 	c.OnRequest(func(r *colly.Request) {
 		currentLink := r.URL.String()
 		urlQueue.visited.Store(currentLink, true)
-		urlQueue.numVisited++
 	})
 
 	c.OnHTML("div#mw-content-text "+"a[href]", func(e *colly.HTMLElement) {
@@ -69,6 +168,10 @@ func BFS(src string, dest string) *URLStore {
 			urlQueue.neighborLinks = append(urlQueue.neighborLinks, e.Request.AbsoluteURL(neighborLink))
 			mutex.Unlock()
 		}
+	})
+
+	c.OnScraped(func(r *colly.Response) {
+		urlQueue.numVisited++
 	})
 
 	urlQueue.predecessors[src] = ""
@@ -103,7 +206,7 @@ func DLS(src string, dest string, maxDepth int) *URLStore {
 	urlStore := NewURLStore()
 
 	var mutex sync.Mutex
-	timer := time.NewTimer(3 * time.Second)
+	timer := time.NewTimer(2 * time.Second)
 	noVisits := make(chan struct{})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -115,16 +218,15 @@ func DLS(src string, dest string, maxDepth int) *URLStore {
 		colly.Async(true),
 	)
 
-	c.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 10})
+	c.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 20})
 
 	scraper := func() {
 		defer c.Wait()
 
 		c.OnRequest(func(r *colly.Request) {
-			timer.Reset(3 * time.Second)
+			timer.Reset(2 * time.Second)
 			currentLink := r.URL.String()
 			urlStore.visited.Store(currentLink, true)
-			urlStore.numVisited++
 			if currentLink == dest {
 				urlStore.resultPath = getPath(urlStore.predecessors, dest)
 				cancel()
@@ -143,6 +245,10 @@ func DLS(src string, dest string, maxDepth int) *URLStore {
 
 				e.Request.Visit(e.Request.AbsoluteURL(neighborLink))
 			}
+		})
+
+		c.OnScraped(func(r *colly.Response) {
+			urlStore.numVisited++
 		})
 
 		c.Visit(src)
