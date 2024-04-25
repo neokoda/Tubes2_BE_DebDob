@@ -68,5 +68,10 @@ func main() {
 		}
 	})
 
-	r.Run(":" + os.Getenv("PORT"))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8000" // Default to port 8000 if PORT is not set
+	}
+
+	r.Run(":" + port)
 }

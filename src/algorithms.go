@@ -10,6 +10,8 @@ import (
 	"github.com/gocolly/colly"
 )
 
+
+
 func validLink(link string) bool {
 	invalidPrefixes := []string{"/wiki/Special:", "/wiki/Talk:", "/wiki/User:", "/wiki/Portal:", "/wiki/Wikipedia:", "/wiki/File:", "/wiki/Category:", "/wiki/Help:", "/wiki/Template:", "/wiki/Template_talk:"}
 	for _, prefix := range invalidPrefixes {
