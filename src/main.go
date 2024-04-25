@@ -44,6 +44,7 @@ func main() {
 		start := time.Now()
 		urlStore := NewURLStore()
 		if search == "BFS" {
+			// urlStore = BFSCache(getWikiArticle(src), getWikiArticle(dest), "cache.json")
 			urlStore = BFS(getWikiArticle(src), getWikiArticle(dest))
 		} else if search == "IDS" {
 			urlStore = IDS(getWikiArticle(src), getWikiArticle(dest))
