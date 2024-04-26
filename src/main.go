@@ -12,10 +12,10 @@ func getWikiArticle(title string) string {
 
 func main() {
 	start := time.Now()
-	urlStore := BFSCached("https://en.wikipedia.org/wiki/AMSAT-OSCAR_10", "https://en.wikipedia.org/wiki/Earl_Tupper", "cache.json")
+	urlStore := BFSMulti("https://en.wikipedia.org/wiki/Bandung_Institute_of_Technology", "https://en.wikipedia.org/wiki/Joko_Widodo", "cache.json")
 	elapsed := time.Since(start)
 
-	fmt.Println("Search result:", urlStore.resultPath, len(urlStore.resultPath))
+	fmt.Println("Search result:", urlStore.resultPaths, len(urlStore.resultPaths))
 	fmt.Println("Articles visited:", urlStore.numVisited)
 	fmt.Println("Time taken:", elapsed)
 }
