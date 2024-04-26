@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+
+
 	"net/url"
 	"strings"
 	"sync"
@@ -114,6 +116,7 @@ func BFSMulti(src string, dest string) *URLStore {
 	c.OnScraped(func(r *colly.Response) {
 		urlQueue.numVisited++
 	})
+	
 
 	c.Visit(src)
 
@@ -124,6 +127,7 @@ func BFSMulti(src string, dest string) *URLStore {
 
 		for _, neighborLink := range currentNeighborLinks {
 			if !urlQueue.HasVisited(neighborLink) {
+				
 				c.Visit(neighborLink)
 			}
 			if neighborLink == dest {
@@ -141,6 +145,7 @@ func BFSMulti(src string, dest string) *URLStore {
 }
 
 func BFS(src string, dest string) *URLStore {
+	
 	urlQueue := NewURLStore()
 
 	var mutex sync.Mutex
@@ -184,6 +189,7 @@ func BFS(src string, dest string) *URLStore {
 
 		for _, neighborLink := range currentNeighborLinks {
 			if !urlQueue.HasVisited(neighborLink) {
+				
 				c.Visit(neighborLink)
 			}
 			if neighborLink == dest {

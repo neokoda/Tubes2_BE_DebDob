@@ -34,6 +34,8 @@ func main() {
 		search := c.Query("search")
 		resultAmount := c.Query("resultAmount")
 
+
+
 		if src == "" || dest == "" || search == "" || resultAmount == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Source, destination, search, resultAmount is required"})
 			return
