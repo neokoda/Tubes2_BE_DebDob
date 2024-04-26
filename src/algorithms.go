@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 
-
 	"net/url"
 	"strings"
 	"sync"
@@ -116,7 +115,6 @@ func BFSMulti(src string, dest string) *URLStore {
 	c.OnScraped(func(r *colly.Response) {
 		urlQueue.numVisited++
 	})
-	
 
 	c.Visit(src)
 
@@ -127,7 +125,7 @@ func BFSMulti(src string, dest string) *URLStore {
 
 		for _, neighborLink := range currentNeighborLinks {
 			if !urlQueue.HasVisited(neighborLink) {
-				
+
 				c.Visit(neighborLink)
 			}
 			if neighborLink == dest {
@@ -145,7 +143,7 @@ func BFSMulti(src string, dest string) *URLStore {
 }
 
 func BFS(src string, dest string) *URLStore {
-	
+
 	urlQueue := NewURLStore()
 
 	var mutex sync.Mutex
@@ -189,8 +187,107 @@ func BFS(src string, dest string) *URLStore {
 
 		for _, neighborLink := range currentNeighborLinks {
 			if !urlQueue.HasVisited(neighborLink) {
-				
+
 				c.Visit(neighborLink)
+			}
+			if neighborLink == dest {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			c.Wait()
+		}
+	}
+
+	urlQueue.resultPath = getPath(urlQueue.predecessors, dest)
+
+	return urlQueue
+}
+
+func BFSCached(src string, dest string, cacheFilename string) *URLStore {
+	cache, err := loadCacheFromFile(cacheFilename)
+	if err != nil {
+		cache = NewURLCache()
+	}
+
+	urlQueue := NewURLStore()
+
+	var mutex sync.Mutex
+
+	c := colly.NewCollector(
+		colly.AllowedDomains("en.wikipedia.org"),
+		colly.Async(true),
+	)
+
+	c.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 10})
+
+	c.OnRequest(func(r *colly.Request) {
+		currentLink := r.URL.String()
+		urlQueue.visited.Store(currentLink, true)
+	})
+
+	c.OnHTML("div#mw-content-text "+"a[href]", func(e *colly.HTMLElement) {
+		currentLink := e.Request.URL.String()
+		neighborLink, _ := url.QueryUnescape(e.Attr("href"))
+		if validLink(neighborLink) {
+			mutex.Lock()
+			if urlQueue.predecessors[e.Request.AbsoluteURL(neighborLink)] == "" && e.Request.AbsoluteURL(neighborLink) != src {
+				urlQueue.predecessors[e.Request.AbsoluteURL(neighborLink)] = currentLink
+			}
+			urlQueue.neighborLinks = append(urlQueue.neighborLinks, e.Request.AbsoluteURL(neighborLink))
+			mutex.Unlock()
+		}
+	})
+
+	c.OnScraped(func(r *colly.Response) {
+		urlQueue.numVisited++
+	})
+
+	urlQueue.predecessors[src] = ""
+	c.Visit(src)
+
+	found := false
+	for !found {
+		currentNeighborLinks := urlQueue.neighborLinks
+		urlQueue.neighborLinks = nil
+
+		for _, neighborLink := range currentNeighborLinks {
+			if !urlQueue.HasVisited(neighborLink) {
+				_, ok := cache.Links[neighborLink]
+				if ok {
+					go func(neighborLink string) {
+						urlQueue.visited.Store(neighborLink, true)
+
+						mutex.Lock()
+						for _, neighborLink2 := range cache.Links[neighborLink] {
+							neighborLink2, _ := url.QueryUnescape(neighborLink2)
+							if urlQueue.predecessors[neighborLink2] == "" && neighborLink2 != src {
+								urlQueue.predecessors[neighborLink2] = neighborLink
+							}
+						}
+						urlQueue.neighborLinks = append(urlQueue.neighborLinks, cache.Links[neighborLink]...)
+						mutex.Unlock()
+
+						urlQueue.numVisited++
+					}(neighborLink)
+					// urlQueue.visited.Store(neighborLink, true)
+
+					// mutex.Lock()
+					// for _, neighborLink2 := range cache.Links[neighborLink] {
+					// 	neighborLink2, _ := url.QueryUnescape(neighborLink2)
+					// 	if urlQueue.predecessors[neighborLink2] == "" && neighborLink2 != src {
+					// 		urlQueue.predecessors[neighborLink2] = neighborLink
+					// 	}
+					// }
+					// urlQueue.neighborLinks = append(urlQueue.neighborLinks, cache.Links[neighborLink]...)
+					// mutex.Unlock()
+
+					// urlQueue.numVisited++
+				} else {
+					c.Visit(neighborLink)
+				}
 			}
 			if neighborLink == dest {
 				found = true
