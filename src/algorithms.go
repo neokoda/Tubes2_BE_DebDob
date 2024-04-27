@@ -42,9 +42,6 @@ func stringInSlice(str string, list []string) bool {
 
 // Gets full path from map of predecessors
 func getPath(predecessors map[string]string, dest string) []string {
-	var mutex sync.Mutex
-
-	mutex.Lock()
 	path := make([]string, 0)
 	node := dest
 
@@ -54,7 +51,6 @@ func getPath(predecessors map[string]string, dest string) []string {
 	}
 
 	reverseSlice(path)
-	mutex.Unlock()
 	return path
 }
 
@@ -255,8 +251,10 @@ func BFS(src string, dest string, cache *URLCache) *URLStore {
 		}
 	}
 
-	// get paths from predecessorsMulti
+	// get paths from predecessors
+	mutex.Lock()
 	urlQueue.resultPath = getPath(urlQueue.predecessors, dest)
+	mutex.Unlock()
 
 	return urlQueue
 }
