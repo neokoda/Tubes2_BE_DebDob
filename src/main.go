@@ -40,6 +40,8 @@ func main() {
 		resultAmount := c.Query("resultAmount")
 
 
+
+
 		if src == "" || dest == "" || search == "" || resultAmount == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Source, destination, search, resultAmount is required"})
 			return
@@ -48,6 +50,11 @@ func main() {
 			return
 		} else if resultAmount != "Single" && resultAmount != "Multi" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid resultAmount value"})
+		}
+
+		if (src == dest){
+			c.JSON(http.StatusOK, gin.H{"paths": [][]string{{src}}, "visited": 1, "timeTaken": 0})
+			return
 		}
 
 		start := time.Now()
