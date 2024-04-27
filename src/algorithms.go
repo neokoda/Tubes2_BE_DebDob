@@ -105,6 +105,7 @@ func BFSMulti(src string, dest string, cache *URLCache) *URLStore {
 	c.OnRequest(func(r *colly.Request) {
 		currentLink := r.URL.String()
 		urlQueue.visited.Store(currentLink, true)
+		urlQueue.numVisited++
 	})
 
 	c.OnHTML("div#mw-content-text "+"a[href]", func(e *colly.HTMLElement) {
@@ -121,10 +122,6 @@ func BFSMulti(src string, dest string, cache *URLCache) *URLStore {
 			urlQueue.neighborLinks = append(urlQueue.neighborLinks, e.Request.AbsoluteURL(neighborLink))
 			mutex.Unlock()
 		}
-	})
-
-	c.OnScraped(func(r *colly.Response) {
-		urlQueue.numVisited++
 	})
 
 	c.Visit(src)
@@ -190,6 +187,7 @@ func BFS(src string, dest string, cache *URLCache) *URLStore {
 	c.OnRequest(func(r *colly.Request) {
 		currentLink := r.URL.String()
 		urlQueue.visited.Store(currentLink, true)
+		urlQueue.numVisited++
 	})
 
 	c.OnHTML("div#mw-content-text "+"a[href]", func(e *colly.HTMLElement) {
@@ -203,10 +201,6 @@ func BFS(src string, dest string, cache *URLCache) *URLStore {
 			urlQueue.neighborLinks = append(urlQueue.neighborLinks, e.Request.AbsoluteURL(neighborLink))
 			mutex.Unlock()
 		}
-	})
-
-	c.OnScraped(func(r *colly.Response) {
-		urlQueue.numVisited++
 	})
 
 	urlQueue.predecessors[src] = ""
@@ -288,6 +282,7 @@ func DLS(src string, dest string, maxDepth int) *URLStore {
 			timer.Reset(2 * time.Second)
 			currentLink := r.URL.String()
 			urlStore.visited.Store(currentLink, true)
+			urlStore.numVisited++
 			if currentLink == dest {
 				urlStore.resultPath = getPath(urlStore.predecessors, dest)
 				cancel()
@@ -306,10 +301,6 @@ func DLS(src string, dest string, maxDepth int) *URLStore {
 
 				e.Request.Visit(e.Request.AbsoluteURL(neighborLink))
 			}
-		})
-
-		c.OnScraped(func(r *colly.Response) {
-			urlStore.numVisited++
 		})
 
 		c.Visit(src)
@@ -352,6 +343,7 @@ func DLSMulti(src string, dest string, maxDepth int) *URLStore {
 	c.OnRequest(func(r *colly.Request) {
 		currentLink := r.URL.String()
 		urlStore.visited.Store(currentLink, true)
+		urlStore.numVisited++
 		if currentLink == dest {
 			found = true
 		}
@@ -371,10 +363,6 @@ func DLSMulti(src string, dest string, maxDepth int) *URLStore {
 
 			e.Request.Visit(e.Request.AbsoluteURL(neighborLink))
 		}
-	})
-
-	c.OnScraped(func(r *colly.Response) {
-		urlStore.numVisited++
 	})
 
 	c.Visit(src)
