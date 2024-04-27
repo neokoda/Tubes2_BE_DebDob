@@ -88,13 +88,7 @@ func getPaths(predecessors map[string][]string, src string, dest string) [][]str
 }
 
 // Multi solution BFS
-func BFSMulti(src string, dest string, cacheFilename string) *URLStore {
-	// loads cache if available
-	cache, err := loadCacheFromFile(cacheFilename)
-	if err != nil {
-		cache = NewURLCache()
-	}
-
+func BFSMulti(src string, dest string, cache *URLCache) *URLStore {
 	// initialize url store and mutex
 	urlQueue := NewURLStore()
 
@@ -179,13 +173,7 @@ func BFSMulti(src string, dest string, cacheFilename string) *URLStore {
 	return urlQueue
 }
 
-func BFS(src string, dest string, cacheFilename string) *URLStore {
-	// loads cache if available
-	cache, err := loadCacheFromFile(cacheFilename)
-	if err != nil {
-		cache = NewURLCache()
-	}
-
+func BFS(src string, dest string, cache *URLCache) *URLStore {
 	// initialize url store and mutex
 	urlQueue := NewURLStore()
 

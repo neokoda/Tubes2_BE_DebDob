@@ -18,6 +18,12 @@ func main() {
 	r := gin.Default()
 	r.Use(cors.Default())
 
+	// load cache, cache is assumed to be available
+	cache, err := loadCacheFromFile("cache.json")
+	if err != nil {
+		cache = NewURLCache()
+	}
+
 	// endpoint is in the form of a GET request with params src, dest, search, and resultAmount
 	r.GET("/", func(c *gin.Context) {
 		src := c.Query("src")
@@ -36,12 +42,12 @@ func main() {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid resultAmount value"})
 		}
 
-		if (src == dest){
+		if src == dest {
 			c.JSON(http.StatusOK, gin.H{"paths": [][]string{{src}}, "visited": 1, "timeTaken": 0})
 			return
 		}
 
-		if (src == dest){
+		if src == dest {
 			c.JSON(http.StatusOK, gin.H{"paths": [][]string{{src}}, "visited": 1, "timeTaken": 0})
 			return
 		}
@@ -50,9 +56,9 @@ func main() {
 		urlStore := NewURLStore()
 		if search == "BFS" {
 			if resultAmount == "Single" {
-				urlStore = BFS(getWikiArticle(src), getWikiArticle(dest), "cache.json")
+				urlStore = BFS(getWikiArticle(src), getWikiArticle(dest), cache)
 			} else {
-				urlStore = BFSMulti(getWikiArticle(src), getWikiArticle(dest), "cache.json")
+				urlStore = BFSMulti(getWikiArticle(src), getWikiArticle(dest), cache)
 			}
 		} else {
 			if resultAmount == "Single" {
