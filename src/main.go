@@ -14,34 +14,18 @@ func getWikiArticle(title string) string {
 	return article
 }
 
-// func main() {
-// 	start := time.Now()
-// 	urlStore := BFSMulti("https://en.wikipedia.org/wiki/Bandung_Institute_of_Technology", "https://en.wikipedia.org/wiki/Joko_Widodo", "cache.json")
-// 	elapsed := time.Since(start)
-
-// 	fmt.Println("Search result:", urlStore.resultPaths, len(urlStore.resultPaths))
-// 	fmt.Println("Articles visited:", urlStore.numVisited)
-// 	fmt.Println("Time taken:", elapsed)
-// }
-
 func main() {
 	r := gin.Default()
 	r.Use(cors.Default())
 
-	cache, err := loadCacheFromFile("cache.json")
-	if (err != nil) {
-		panic(err)
-	}
-
+	// endpoint is in the form of a GET request with params src, dest, search, and resultAmount
 	r.GET("/", func(c *gin.Context) {
 		src := c.Query("src")
 		dest := c.Query("dest")
 		search := c.Query("search")
 		resultAmount := c.Query("resultAmount")
 
-
-
-
+		// check for missing or invalid parameters
 		if src == "" || dest == "" || search == "" || resultAmount == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Source, destination, search, resultAmount is required"})
 			return
@@ -57,13 +41,18 @@ func main() {
 			return
 		}
 
+		if (src == dest){
+			c.JSON(http.StatusOK, gin.H{"paths": [][]string{{src}}, "visited": 1, "timeTaken": 0})
+			return
+		}
+		// perform search and calculate time taken
 		start := time.Now()
 		urlStore := NewURLStore()
 		if search == "BFS" {
 			if resultAmount == "Single" {
-				urlStore = BFS(getWikiArticle(src), getWikiArticle(dest), *cache)
+				urlStore = BFS(getWikiArticle(src), getWikiArticle(dest), "cache.json")
 			} else {
-				urlStore = BFSMulti(getWikiArticle(src), getWikiArticle(dest), *cache)
+				urlStore = BFSMulti(getWikiArticle(src), getWikiArticle(dest), "cache.json")
 			}
 		} else {
 			if resultAmount == "Single" {
@@ -74,6 +63,7 @@ func main() {
 		}
 		elapsed := time.Since(start).Milliseconds()
 
+		// return json
 		if resultAmount == "Single" {
 			c.JSON(http.StatusOK, gin.H{"paths": [][]string{urlStore.resultPath}, "visited": urlStore.numVisited, "timeTaken": elapsed})
 		} else {
@@ -86,5 +76,6 @@ func main() {
 		port = "8000" // Default to port 8000 if PORT is not set
 	}
 
+	// run file
 	r.Run(":" + port)
 }
