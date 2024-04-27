@@ -13,7 +13,9 @@ import (
 
 // Check if link is wikipedia article
 func validLink(link string) bool {
-	invalidPrefixes := []string{"/wiki/Special:", "/wiki/Talk:", "/wiki/User:", "/wiki/Portal:", "/wiki/Wikipedia:", "/wiki/File:", "/wiki/Category:", "/wiki/Help:", "/wiki/Template:", "/wiki/Template_talk:"}
+	invalidPrefixes := []string{"/wiki/Special:", "/wiki/Talk:", "/wiki/User:", 
+	"/wiki/Portal:", "/wiki/Wikipedia:", "/wiki/File:", "/wiki/Category:", "/wiki/Help:", 
+	"/wiki/Template:", "/wiki/Template_talk:"}
 	for _, prefix := range invalidPrefixes {
 		if strings.HasPrefix(link, prefix) {
 			return false
@@ -108,8 +110,12 @@ func BFSMulti(src string, dest string, cache *URLCache) *URLStore {
 	})
 
 	c.OnHTML("div#mw-content-text "+"a[href]", func(e *colly.HTMLElement) {
+
 		currentLink := e.Request.URL.String()
 		neighborLink, _ := url.QueryUnescape(e.Attr("href"))
+		
+
+		
 		if validLink(neighborLink) && !urlQueue.HasVisited(neighborLink) {
 			mutex.Lock()
 			// append to existing predecessor map if already exists, creates new one if not
@@ -138,6 +144,7 @@ func BFSMulti(src string, dest string, cache *URLCache) *URLStore {
 			if !urlQueue.HasVisited(neighborLink) {
 				_, ok := cache.Links[neighborLink]
 				if ok { // present in cache
+					
 					go func(neighborLink string) {
 						urlQueue.visited.Store(neighborLink, true)
 
@@ -156,9 +163,11 @@ func BFSMulti(src string, dest string, cache *URLCache) *URLStore {
 					}(neighborLink)
 				} else { // manually scrape
 					c.Visit(neighborLink)
+					
 				}
 			}
 			if neighborLink == dest {
+		
 				found = true
 				break
 			}

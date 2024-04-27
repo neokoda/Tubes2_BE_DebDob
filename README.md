@@ -55,15 +55,17 @@ docker compose -f "docker-compose.prod.yml" up -d --build
 ```bash
 git clone https://github.com/neokoda/Tubes2_BE_DebDob
 ```
-## Step 6: Move to the Backend Directory
+## Step 6: Download our cache.json from Google Drive and Add inside src folder
+Link to download the cache : https://drive.google.com/drive/folders/1hukgyjk7nF8JFvvB1JmTk5fXTr0h0Fww?usp=sharing
+## Step 7: Move to the Backend Directory
 ```bash
 cd Tubes2_BE_DebDob  # Navigate to the backend from frontend
 ```
-## Step 7: Start Docker Compose for Backend
+## Step 8: Start Docker Compose for Backend
 ```bash
 docker compose up
 ```
-## Step 8: Navigate to localhost:3000
+## Step 9: Navigate to localhost:3000
 Open localhost:3000 in your browser
 # Steps to Run (Without Docker)
 
@@ -87,22 +89,38 @@ npm run dev
 ## Step 5: Clone the Backend Repository
 ```bash
 git clone https://github.com/neokoda/Tubes2_BE_DebDob
+
 ```
-## Step 6: Move to the Backend Directory
+## Step 6: Download our cache.json from Google Drive and Add inside src folder
+Link to download the cache : https://drive.google.com/drive/folders/1hukgyjk7nF8JFvvB1JmTk5fXTr0
+## Step 7: Move to the Backend Directory
 ```bash
 cd Tubes2_BE_DebDob  # Navigate to the backend from frontend
 cd src
 ```
-## Step 7: Start the Golang App
+## Step 8: Start the Golang App
 ```bash
 go mod download
 go run .
 ```
-## Step 8: Navigate to localhost:3000
+## Step 9: Navigate to localhost:3000
 Navigate to localhost:3000 to open the website
 
 ## Preview
-
+### Homepage
+![Alt text](img//1.png)
+### Form Page
+![Alt text](img//2.png)
+### Tech Stack Used
+![Alt text](img//3.png)
+### BFS Explanation Page
+![Alt text](img//4.png)
+### IDS Explanation Page
+![Alt text](img//5.png)
+### About Us Page
+![Alt text](img//6.png)
+### Example of Result
+![Alt text](img//7.png)
 ## Author
 Created by:
 
