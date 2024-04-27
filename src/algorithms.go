@@ -42,6 +42,9 @@ func stringInSlice(str string, list []string) bool {
 
 // Gets full path from map of predecessors
 func getPath(predecessors map[string]string, dest string) []string {
+	var mutex sync.Mutex
+
+	mutex.Lock()
 	path := make([]string, 0)
 	node := dest
 
@@ -51,6 +54,7 @@ func getPath(predecessors map[string]string, dest string) []string {
 	}
 
 	reverseSlice(path)
+	mutex.Unlock()
 	return path
 }
 
