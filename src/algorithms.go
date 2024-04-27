@@ -11,6 +11,7 @@ import (
 	"github.com/gocolly/colly"
 )
 
+// Check if link is wikipedia article
 func validLink(link string) bool {
 	invalidPrefixes := []string{"/wiki/Special:", "/wiki/Talk:", "/wiki/User:", "/wiki/Portal:", "/wiki/Wikipedia:", "/wiki/File:", "/wiki/Category:", "/wiki/Help:", "/wiki/Template:", "/wiki/Template_talk:"}
 	for _, prefix := range invalidPrefixes {
@@ -21,6 +22,7 @@ func validLink(link string) bool {
 	return strings.HasPrefix(link, "/wiki/")
 }
 
+// Reverses a slice
 func reverseSlice(slice []string) {
 	for i := 0; i < len(slice)/2; i++ {
 		j := len(slice) - i - 1
@@ -28,6 +30,7 @@ func reverseSlice(slice []string) {
 	}
 }
 
+// Checks whether or not a string is in a slice
 func stringInSlice(str string, list []string) bool {
 	for _, item := range list {
 		if item == str {
@@ -37,11 +40,12 @@ func stringInSlice(str string, list []string) bool {
 	return false
 }
 
+// Gets full path from map of predecessors
 func getPath(predecessors map[string]string, dest string) []string {
 	path := make([]string, 0)
 	node := dest
 
-	for node != "" {
+	for node != "" { // source has no predecessor
 		path = append(path, node)
 		node = predecessors[node]
 	}
@@ -50,12 +54,14 @@ func getPath(predecessors map[string]string, dest string) []string {
 	return path
 }
 
+// Gets all paths from map of predecessors
 func getPaths(predecessors map[string][]string, src string, dest string) [][]string {
 	var paths [][]string
 	var resultPaths [][]string
 
 	found := false
 	paths = append(paths, []string{dest})
+	// builds paths from destination node, every iteration adds the length of the path by one
 	for !found {
 		currentPaths := paths
 		paths = nil
@@ -70,6 +76,7 @@ func getPaths(predecessors map[string][]string, src string, dest string) [][]str
 		}
 	}
 
+	// reverses and adds paths that have src as the final element
 	for _, path := range paths {
 		if path[len(path)-1] == src {
 			reverseSlice(path)
@@ -80,16 +87,20 @@ func getPaths(predecessors map[string][]string, src string, dest string) [][]str
 	return resultPaths
 }
 
+// Multi solution BFS
 func BFSMulti(src string, dest string, cacheFilename string) *URLStore {
+	// loads cache if available
 	cache, err := loadCacheFromFile(cacheFilename)
 	if err != nil {
 		cache = NewURLCache()
 	}
 
+	// initialize url store and mutex
 	urlQueue := NewURLStore()
 
 	var mutex sync.Mutex
 
+	// set up colly config and On<...> functions
 	c := colly.NewCollector(
 		colly.AllowedDomains("en.wikipedia.org"),
 		colly.Async(true),
@@ -107,6 +118,7 @@ func BFSMulti(src string, dest string, cacheFilename string) *URLStore {
 		neighborLink, _ := url.QueryUnescape(e.Attr("href"))
 		if validLink(neighborLink) && !urlQueue.HasVisited(neighborLink) {
 			mutex.Lock()
+			// append to existing predecessor map if already exists, creates new one if not
 			if _, ok := urlQueue.predecessorsMulti[e.Request.AbsoluteURL(neighborLink)]; ok && !stringInSlice(currentLink, urlQueue.predecessorsMulti[e.Request.AbsoluteURL(neighborLink)]) {
 				urlQueue.predecessorsMulti[e.Request.AbsoluteURL(neighborLink)] = append(urlQueue.predecessorsMulti[e.Request.AbsoluteURL(neighborLink)], currentLink)
 			} else if !ok {
@@ -124,14 +136,14 @@ func BFSMulti(src string, dest string, cacheFilename string) *URLStore {
 	c.Visit(src)
 
 	found := false
-	for !found {
+	for !found { // one iteration is one addition to depth
 		currentNeighborLinks := urlQueue.neighborLinks
-		urlQueue.neighborLinks = nil
+		urlQueue.neighborLinks = nil // copy neighborLinks and clear
 
 		for _, neighborLink := range currentNeighborLinks {
 			if !urlQueue.HasVisited(neighborLink) {
 				_, ok := cache.Links[neighborLink]
-				if ok {
+				if ok { // present in cache
 					go func(neighborLink string) {
 						urlQueue.visited.Store(neighborLink, true)
 
@@ -148,7 +160,7 @@ func BFSMulti(src string, dest string, cacheFilename string) *URLStore {
 
 						urlQueue.numVisited++
 					}(neighborLink)
-				} else {
+				} else { // manually scrape
 					c.Visit(neighborLink)
 				}
 			}
@@ -161,19 +173,23 @@ func BFSMulti(src string, dest string, cacheFilename string) *URLStore {
 		c.Wait()
 	}
 
+	// get paths from predecessorsMulti
 	urlQueue.resultPaths = getPaths(urlQueue.predecessorsMulti, src, dest)
 
 	return urlQueue
 }
 
 func BFS(src string, dest string, cacheFilename string) *URLStore {
+	// loads cache if available
 	cache, err := loadCacheFromFile(cacheFilename)
 	if err != nil {
 		cache = NewURLCache()
 	}
 
+	// initialize url store and mutex
 	urlQueue := NewURLStore()
 
+	// set up colly config and On<...> functions
 	var mutex sync.Mutex
 
 	c := colly.NewCollector(
@@ -209,14 +225,14 @@ func BFS(src string, dest string, cacheFilename string) *URLStore {
 	c.Visit(src)
 
 	found := false
-	for !found {
+	for !found { // one iteration is one addition to depth
 		currentNeighborLinks := urlQueue.neighborLinks
-		urlQueue.neighborLinks = nil
+		urlQueue.neighborLinks = nil // copy neighborlinks and clear
 
 		for _, neighborLink := range currentNeighborLinks {
 			if !urlQueue.HasVisited(neighborLink) {
 				_, ok := cache.Links[neighborLink]
-				if ok {
+				if ok { // present in cache
 					go func(neighborLink string) {
 						urlQueue.visited.Store(neighborLink, true)
 
@@ -232,7 +248,7 @@ func BFS(src string, dest string, cacheFilename string) *URLStore {
 
 						urlQueue.numVisited++
 					}(neighborLink)
-				} else {
+				} else { // manually scrape
 					c.Visit(neighborLink)
 				}
 			}
@@ -247,21 +263,25 @@ func BFS(src string, dest string, cacheFilename string) *URLStore {
 		}
 	}
 
+	// get paths from predecessorsMulti
 	urlQueue.resultPath = getPath(urlQueue.predecessors, dest)
 
 	return urlQueue
 }
 
 func DLS(src string, dest string, maxDepth int) *URLStore {
+	// initialize new URLStore
 	urlStore := NewURLStore()
 
+	// concurrency tools
 	var mutex sync.Mutex
-	timer := time.NewTimer(2 * time.Second)
+	timer := time.NewTimer(2 * time.Second) // Stop DLS if no visits are being made after two seconds
 	noVisits := make(chan struct{})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// initialize colly config
 	c := colly.NewCollector(
 		colly.AllowedDomains("en.wikipedia.org"),
 		colly.MaxDepth(maxDepth),
@@ -270,6 +290,7 @@ func DLS(src string, dest string, maxDepth int) *URLStore {
 
 	c.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 20})
 
+	// DLS function to immediately stop execution on first finding of destination
 	scraper := func() {
 		defer c.Wait()
 
@@ -304,8 +325,10 @@ func DLS(src string, dest string, maxDepth int) *URLStore {
 		c.Visit(src)
 	}
 
+	// execute scraper
 	go scraper()
 
+	// timer watcher function
 	go func() {
 		<-timer.C
 		noVisits <- struct{}{}
@@ -320,11 +343,14 @@ func DLS(src string, dest string, maxDepth int) *URLStore {
 }
 
 func DLSMulti(src string, dest string, maxDepth int) *URLStore {
+	// initialize new URLStore
 	urlStore := NewURLStore()
 	found := false
 
+	// concurrency tools
 	var mutex sync.Mutex
 
+	// initialize colly config
 	c := colly.NewCollector(
 		colly.AllowedDomains("en.wikipedia.org"),
 		colly.MaxDepth(maxDepth),
@@ -363,7 +389,7 @@ func DLSMulti(src string, dest string, maxDepth int) *URLStore {
 
 	c.Visit(src)
 
-	c.Wait()
+	c.Wait() // wait until all nodes are done being visited
 
 	if found {
 		urlStore.resultPaths = getPaths(urlStore.predecessorsMulti, src, dest)
@@ -377,7 +403,7 @@ func IDS(src string, dest string) *URLStore {
 	urlStore := NewURLStore()
 	for {
 		urlStore = DLS(src, dest, depth)
-		if len(urlStore.resultPath) > 0 {
+		if len(urlStore.resultPath) > 0 { // solution not found, increase depth
 			break
 		}
 		depth++
@@ -390,7 +416,7 @@ func IDSMulti(src string, dest string) *URLStore {
 	urlStore := NewURLStore()
 	for {
 		urlStore = DLSMulti(src, dest, depth)
-		if len(urlStore.resultPaths) > 0 {
+		if len(urlStore.resultPaths) > 0 { // solution not found, increase depth
 			break
 		}
 		depth++
